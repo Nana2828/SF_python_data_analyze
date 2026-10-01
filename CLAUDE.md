@@ -10,7 +10,8 @@
 
 **모든 `.py`/`.ipynb`/`.csv` 파일은 `src/` 아래에 있습니다** (`src/UI/main.py`, `src/UI/crawler.py`,
 `src/UI/visualizer.py`, `src/UI/model_predictor.py`, `src/EDA1.ipynb`, `src/EDA2.ipynb`, `src/EDA3.ipynb`,
-`src/model_1.ipynb`, `src/model_2.ipynb`, `src/model_3.ipynb`, `src/ai4i2020.csv`). 아래
+`src/model_1.ipynb`, `src/model2_RandomForest.ipynb`, `src/model2_XGBoost.ipynb`, `src/model2_LightGBM.ipynb`,
+`src/model_3.ipynb`, `src/ai4i2020.csv`). 아래
 본문에서 파일명만 적었으면 전부 `src/` 아래(단, Tkinter UI와 얽힌 4종은 `src/UI/` 아래)에 있다는
 뜻입니다. Tkinter UI 4종(`main.py`/`crawler.py`/`visualizer.py`/`model_predictor.py`)만 서로 묶여서
 `src/UI/`에 있고, 나머지 노트북/CSV는 그대로 `src/` 바로 아래에 있습니다 — `main.py`가
@@ -19,8 +20,9 @@
 한 단계 위 `src/ai4i2020.csv`를 가리키도록 `Path(__file__).resolve().parent.parent`를 쓰고,
 `model_predictor.py`의 `MODEL_PATH`는 `src/UI/`에서 두 단계 위(저장소 루트) `model/`을 가리키도록
 `Path(__file__).resolve().parent.parent.parent`를 씁니다.
-`README.md`/`CLAUDE.md`/`docs/`/`images/`/`model/`/`미니 프로젝트 흐름도.png`는 저장소 루트에 그대로
-남아 있습니다 — `images/`/`model/`이 `src/` 밖에 있기 때문에 `EDA1.ipynb`/`model_3.ipynb` 등의
+`README.md`/`CLAUDE.md`/`docs/`/`images/`/`model/`는 저장소 루트에 그대로 남아 있습니다(`미니 프로젝트
+흐름도.png`는 루트가 아니라 `images/` 안에 있습니다) — `images/`/`model/`이 `src/` 밖에 있기 때문에
+`EDA1.ipynb`/`model_3.ipynb` 등의
 `savefig()`/`joblib.dump()` 호출은 `"../images/*.png"`/`"../model/*.joblib"`처럼 한 단계 위로
 올라가는 상대경로를 씁니다. 앞으로 `preprocessor.py` 등 새 모듈을 추가할 때도 `src/` 안에
 만드세요(단, Tkinter UI와 얽힌 모듈이면 `src/UI/` 안에). 예외적으로 `scripts/run_notebook.py`만
@@ -49,12 +51,15 @@
    `README.md` 2장에 정리돼 있습니다 — `Type`은 사실상 랜덤 수준(AUC 0.48~0.51)이었고 `Torque`는 잘
    예측됨(R² 0.8+)을 확인한 것이 `Machine failure`로 주제를 확정하는 근거가 됐습니다. `미니 프로젝트
    흐름도.png`가 정의한 `modeling.py`/`Modeler` 모듈(아래 "목표 파이프라인 모듈" 표)과는 별개입니다.
-3. **`src/model_1.ipynb`/`src/model_2.ipynb`** — `Machine failure` 이진분류의 초기 draft 노트북 2개
-   (markdown 설명 없이 코드만 있음). `model_1.ipynb`는 SMOTE + RandomForest/XGBoost/LightGBM 단순 비교,
-   `model_2.ipynb`는 피처 엔지니어링 + `RandomizedSearchCV`(recall 기준) 튜닝을 시도했습니다. 최종적으로
-   위험구간(zone) 피처 엔지니어링을 적용한 **`model_3.ipynb`가 이 실험들을 이어받아 완성한 버전**이자
-   실제 UI에 배포된 모델입니다 — 아래 `src/model_3.ipynb` 절 참고. `model_1`/`model_2`는 현재 UI와
-   연결되어 있지 않고, 과거 실험 기록으로만 남아 있습니다.
+3. **`src/model_1.ipynb` / `src/model2_RandomForest.ipynb` / `src/model2_XGBoost.ipynb` / `src/model2_LightGBM.ipynb`**
+   — `Machine failure` 이진분류의 초기 draft 노트북들(markdown 설명 없이 코드만 있음). `model_1.ipynb`는
+   SMOTE + RandomForest/XGBoost/LightGBM 단순 비교, `model2_*.ipynb` 3개는 모델별로 파생변수 7개 +
+   `RandomizedSearchCV` 튜닝을 Base/Hyperparameter만/Feature만/Feature+Hyperparameter 4가지 조합으로
+   비교했습니다(결과는 `docs/2차.md` 참고 — 2차 노트북은 원래 `model_2.ipynb` 1개였다가 모델별로
+   분리됐으니, 과거 커밋 로그나 문서에서 `model_2.ipynb` 단수형을 보면 이 3개 파일을 가리키는 것으로
+   이해하면 됩니다). 최종적으로 위험구간(zone) 피처 엔지니어링을 적용한 **`model_3.ipynb`가 이 실험들을
+   이어받아 완성한 버전**이자 실제 UI에 배포된 모델입니다 — 아래 `src/model_3.ipynb` 절 참고. `model_1`/
+   `model2_*`는 현재 UI와 연결되어 있지 않고, 과거 실험 기록으로만 남아 있습니다.
 4. **`main.py`** (Tkinter UI) + **`visualizer.py`** (그래프) + **`crawler.py`** (크롤링)로 모듈이 나뉘어
    있습니다. 오른쪽 패널은 네이버 뉴스 크롤러이지만, **더 이상 무관한 고정 검색어가 아니라 왼쪽 그래프
    카드가 알려주는 EDA 인사이트로 검색어가 바뀝니다** — 예: "세부 고장 모드별 발생 건수" 카드를 클릭하면
@@ -227,9 +232,9 @@ speed`, `Tool wear`, `Machine failure`/고장 모드 플래그로 `Torque [Nm]`�
   보면 "모델을 더 좋은 걸 썼는가"보다 "타겟이 특성들과 실제로 관계가 있는가"가 예측 성능을 훨씬 크게
   좌우한다는 점을 대조적으로 확인할 수 있다.
 
-### `src/model_1.ipynb` / `src/model_2.ipynb` — `Machine failure` 이진분류 draft 2종
+### `src/model_1.ipynb` / `src/model2_RandomForest.ipynb` / `src/model2_XGBoost.ipynb` / `src/model2_LightGBM.ipynb` — `Machine failure` 이진분류 draft
 `model_3.ipynb`로 완성되기 전의 초기 draft 노트북입니다. **markdown 설명 셀이 전혀 없고 코드만 있어서**,
-아래 요약은 코드를 직접 읽어서 정리한 것입니다. 둘 다 현재 UI(`model_predictor.py`)와 연결돼 있지 않고,
+아래 요약은 코드를 직접 읽어서 정리한 것입니다. 전부 현재 UI(`model_predictor.py`)와 연결돼 있지 않고,
 과거 실험 기록으로만 남아 있습니다 — 새로 손볼 필요가 생기면 `model_3.ipynb`의 위험구간(zone) 피처를
 먼저 적용해보는 쪽을 권장합니다.
 
@@ -237,19 +242,23 @@ speed`, `Tool wear`, `Machine failure`/고장 모드 플래그로 `Torque [Nm]`�
   SMOTE 적용 데이터로 학습, XGBoost/LightGBM은 원본 데이터로 학습) → RandomForest(`n_estimators=500,
   max_depth=15, class_weight="balanced"`)/XGBoost/LightGBM 단순 비교. 정확도 기준 RandomForest 0.942,
   XGBoost 0.984, LightGBM 0.9845.
-- **`model_2.ipynb`**: `model_1.ipynb`과 같은 전처리에 파생변수(`Power` 등)를 추가하고,
-  `RandomForestClassifier`에 `RandomizedSearchCV`(`scoring="recall"`, `n_iter=30`, `cv=5`, `n_jobs=-1`,
-  커스텀 `class_weight` 딕셔너리 후보 포함)로 하이퍼파라미터 탐색을 수행. 재현율(recall) 기준 최적화라
-  best recall이 약 0.995까지 나왔음(재현율에 치우친 튜닝이라 정밀도와의 트레이드오프는 별도 확인 필요).
-  - **주의(실제로 겪은 버그, Windows 한정)**: `n_jobs=-1`처럼 `n_jobs`를 1이 아닌 값으로 주면, Windows
-    사용자 폴더 이름에 한글(비-ASCII 문자)이 섞여 있을 때 joblib이 임시 폴더 경로를 ASCII로 인코딩하려다
-    `UnicodeEncodeError`로 죽는다. 이 노트북 첫 셀에 `os.environ.setdefault("JOBLIB_TEMP_FOLDER", ...)`로
-    ASCII 전용 시스템 임시 폴더를 지정해 회피해뒀다 — `n_jobs`를 쓰는 새 코드를 추가할 때 이 패턴을
-    재사용할 것 (`docs/troubleshooting.md` 참고).
+- **`model2_RandomForest.ipynb` / `model2_XGBoost.ipynb` / `model2_LightGBM.ipynb`**: 원래 `model_2.ipynb`
+  하나였다가 모델별로 분리된 노트북 3개입니다. `model_1.ipynb`과 같은 전처리에 파생변수 7개(`Power` 등)를
+  추가하고, 모델마다 `RandomizedSearchCV`(`n_iter=20`, `cv=5`)로 Base/Hyperparameter만/Feature만/
+  Feature+Hyperparameter 4가지 조합을 비교했습니다. 모델별 "가장 나았던 조합"은 RF=Feature Engineering
+  (F1 0.54), XGBoost=Feature+Hyperparameter(F1 0.67), LightGBM=Base(F1 0.73) — 전체 표와 해석은
+  `docs/2차.md` 참고. `model2_RandomForest.ipynb`의 RF 최적 파라미터: `n_estimators=300,
+  min_samples_split=10, min_samples_leaf=2, max_features="sqrt", class_weight={0:1,1:8}`, 교차검증
+  재현율 약 0.996(실제 테스트셋 재현율과는 차이가 큼).
+  - **주의(실제로 겪은 버그, Windows 한정)**: `RandomizedSearchCV`에 `n_jobs=-1`처럼 `n_jobs`를 1이 아닌
+    값으로 주면, Windows 사용자 폴더 이름에 한글(비-ASCII 문자)이 섞여 있을 때 joblib이 임시 폴더
+    경로를 ASCII로 인코딩하려다 `UnicodeEncodeError`로 죽는다. 노트북 첫 셀에
+    `os.environ.setdefault("JOBLIB_TEMP_FOLDER", ...)`로 ASCII 전용 시스템 임시 폴더를 지정해
+    회피해뒀다 — `n_jobs`를 쓰는 새 코드를 추가할 때 이 패턴을 재사용할 것 (`docs/troubleshooting.md` 참고).
 
 ### `src/model_3.ipynb` — `Machine failure`(정상/불량) 이진분류, UI에 실제로 배포된 모델
 확정 주제인 정상/불량 이진분류를 다루는 세 번째(최종) 모델링 노트북입니다 — `model_1.ipynb`/
-`model_2.ipynb`의 draft를 이어받아 위험구간(zone) 피처 엔지니어링으로 완성한 버전이자, 실제로 UI에
+`model2_*.ipynb`의 draft를 이어받아 위험구간(zone) 피처 엔지니어링으로 완성한 버전이자, 실제로 UI에
 배포된 모델(`model/random_forest_enhanced.joblib`)을 만들어내는 노트북입니다. **주의**: 노트북 파일명은
 `model_3.ipynb`이지만 내부 markdown/`savefig()`/`joblib.dump()` 경로는 과거 이름인 `modeling2`를 그대로
 쓰고 있습니다(`../images/modeling2_*.png`, `docs/modeling2_binary_eda.md`, 노트북 안내 문구의

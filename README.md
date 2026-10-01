@@ -14,7 +14,7 @@ flowchart LR
     eda --> exp2["Torque 회귀<br/>R² 0.8+<br/>(신호 확인용)"]
     eda --> exp3["Machine failure 이진분류<br/>확정 주제"]
     exp3 --> m1["1차 Baseline<br/>model_1.ipynb"]
-    m1 --> m2["2차 피처+튜닝<br/>model_2.ipynb"]
+    m1 --> m2["2차 피처+튜닝<br/>model2_RandomForest/XGBoost/LightGBM.ipynb"]
     m2 --> m3["3차 risk_zone 피처<br/>model_3.ipynb · F1 0.912"]
     m3 --> joblib[("model/random_forest_enhanced.joblib")]
     joblib --> ui["Tkinter UI<br/>src/UI/"]
@@ -175,18 +175,18 @@ python_data_analyze/
 - 대상: `Machine failure`(0=정상, 1=불량) — 이진분류, **이 프로젝트의 확정 주제**
 - 목표 설정 근거: EDA에서 `Torque`/`Tool wear`와 상관관계가 확인된 타겟 → 설비진단 문제로 직결, 2-2의 회귀 실험에서도 `Torque` 자체가 물리적으로 예측 가능한 신호임을 재확인
 
-이 주제 하나로만 노트북을 3번(`model_1.ipynb` → `model_2.ipynb` → `model_3.ipynb`) 다시 짰습니다. 세 번
-다 같은 데이터·같은 타겟이지만, **접근 방식이 매번 바뀐 이유가 바로 앞 시도의 한계**이기 때문에 순서대로
-보면 왜 최종적으로 지금 방식(3차)에 도달했는지 납득이 갑니다.
+이 주제 하나로만 노트북을 3단계(`model_1.ipynb` → `model2_RandomForest/XGBoost/LightGBM.ipynb` → `model_3.ipynb`)로
+다시 짰습니다. 세 번 다 같은 데이터·같은 타겟이지만, **접근 방식이 매번 바뀐 이유가 바로 앞 시도의 한계**이기
+때문에 순서대로 보면 왜 최종적으로 지금 방식(3차)에 도달했는지 납득이 갑니다.
 
 ```mermaid
 flowchart LR
     A["1차 Baseline<br/>원본 변수만<br/>정밀도 0.35 · 재현율 0.85 · F1 0.50"]
-    B["2차 피처엔지니어링 + 튜닝<br/>RandomizedSearchCV(recall 최적화)<br/>정밀도 0.34 · 재현율 0.91 · F1 0.50"]
+    B["2차 피처엔지니어링 + 튜닝<br/>모델별 최선 조합도 1차 대비 정체·소폭 개선<br/>RF 0.54 · XGBoost 0.67 · LightGBM 0.73"]
     C["3차 risk_zone 피처<br/>도메인 규칙 직접 주입<br/>정밀도 1.000 · 재현율 0.838 · F1 0.912"]
 
-    A -- "재현율이 너무 낮음" --> B
-    B -- "정밀도-재현율 트레이드오프가<br/>안 풀림 → 접근을 바꿈" --> C
+    A -- "XGBoost/LightGBM 재현율이 낮음" --> B
+    B -- "모델/파라미터만으로는 한계<br/>→ 접근을 바꿈" --> C
 
     style C fill:#d4edda,stroke:#28a745
 ```
@@ -206,18 +206,20 @@ flowchart LR
 - 세 모델이 **정반대 방향으로 치우쳐 있습니다**: RF는 임계값을 낮춰 재현율 0.85까지 끌어올렸지만 정밀도가 0.35로 낮아 불량 예측 10건 중 6~7건이 오탐입니다. 반대로 XGBoost/LightGBM은 정밀도는 0.9 안팎으로 높지만 재현율이 0.6 전후라 실제 불량의 40%가량을 놓칩니다.
 - → **원본 변수만으로는 재현율과 정밀도를 동시에 만족시키는 모델이 없다**는 것이 1차의 결론이고, 이게 2차로 넘어가는 이유입니다.
 
-#### 2차 — 피처 엔지니어링 & 하이퍼파라미터 튜닝 (`src/model_2.ipynb`)
+#### 2차 — 피처 엔지니어링 & 하이퍼파라미터 튜닝 (`src/model2_RandomForest.ipynb`, `model2_XGBoost.ipynb`, `model2_LightGBM.ipynb`)
 
-- 1차의 "재현율이 낮다"는 문제를 정면으로 겨냥: 파생변수 6개(`Power`=회전속도×토크, `Temp_diff`=온도차, `Power_wear`=동력×공구마모, `Torque_per_RPM`, `Torque_wear`=토크×공구마모, `Temp_Torque`, `Temp_ratio`)를 추가하고, `RandomForestClassifier`에 `RandomizedSearchCV`(`n_iter=30`, `cv=5`, **`scoring="recall"`** — 재현율을 목적함수로 직접 최적화, `class_weight` 후보에 `{0:1,1:3}/{0:1,1:5}/{0:1,1:8}` 같은 커스텀 가중치도 포함)로 체계적 탐색
-- 탐색된 최적 파라미터: `n_estimators=300, min_samples_split=5, min_samples_leaf=2, max_features="log2", max_depth=None, class_weight={0:1,1:8}` — 교차검증 재현율 **0.995**
+- 1차의 한계(모델마다 정밀도·재현율 중 하나가 희생됨)를 겨냥: 파생변수 7개(`Power`=회전속도×토크, `Temp_diff`=온도차, `Power_wear`=동력×공구마모, `Torque_per_RPM`, `Torque_wear`=토크×공구마모, `Temp_Torque`, `Temp_ratio`)를 추가하고, 모델 3종 각각에 `RandomizedSearchCV`(`n_iter=20`, `cv=5`)로 하이퍼파라미터를 탐색
+- 모델마다 노트북을 분리해 **Base / Hyperparameter만 / Feature만 / Feature+Hyperparameter** 4가지 조합을 전부 비교(자세한 표는 [`docs/2차.md`](docs/2차.md) 참고). RF 최적 파라미터: `n_estimators=300, min_samples_split=10, min_samples_leaf=2, max_features="sqrt", class_weight={0:1,1:8}` — 교차검증 재현율 **0.996**(실제 테스트셋 재현율과는 차이가 큼)
 
-| 모델 | 정확도 | 불량(1) 정밀도 | 불량(1) 재현율 | 불량(1) F1 |
-| --- | --- | --- | --- | --- |
-| 1차 RF (threshold 0.3) | 0.942 | 0.35 | 0.85 | 0.50 |
-| 2차 RF (RandomizedSearchCV 튜닝) | 0.940 | 0.34 | **0.91** | 0.50 |
+| 모델 | 가장 나았던 조합 | 정확도 | 불량(1) 정밀도 | 불량(1) 재현율 | 불량(1) F1 |
+| --- | --- | --- | --- | --- | --- |
+| Random Forest | Feature Engineering | 0.95 | 0.39 | 0.90 | **0.54** |
+| XGBoost | Feature + Hyperparameter | 0.97 | 0.57 | 0.82 | 0.67 |
+| LightGBM | Base (추가 기법 효과 없음) | 0.98 | 0.67 | 0.79 | 0.73 |
 
-- 재현율은 1차 최고치(0.85)보다 더 올라 **0.91**을 달성했지만(교차검증 점수 0.995와는 차이가 큼 — 실제 테스트셋에서는 그만큼 안 나옴), **정밀도는 오히려 0.34로 더 떨어졌고 F1은 0.50으로 1차 RF와 사실상 그대로**입니다.
-- → **재현율 하나만 목적함수로 튜닝하면 정밀도를 그만큼 깎아먹을 뿐, 둘의 트레이드오프 자체는 풀리지 않는다**는 것이 2차의 결론입니다. 파생변수를 늘리고 탐색을 아무리 정교하게 해도 "모델이 데이터에서 스스로 좋은 경계를 찾게 맡기는" 접근 자체의 한계로 보입니다 — 이게 3차에서 접근 방식을 통째로 바꾸는 이유입니다.
+- 1차 대비 F1 변화: **RF만 소폭 개선**(0.50→0.54), XGBoost는 오히려 하락(0.71→0.67), LightGBM은 사실상 그대로(0.73→0.73)
+- 모델마다 "최선의 기법"이 달랐습니다 — RF는 파생변수만으로 충분, XGBoost는 파생변수+튜닝을 같이 써야 최선, LightGBM은 추가 기법이 오히려 도움이 안 됨(Base가 최선).
+- → **파생변수·하이퍼파라미터 튜닝을 아무리 정교하게 해도, 이미 강한 모델(XGBoost·LightGBM)은 더 좋아지지 않고 약한 모델(RF)만 소폭 따라잡는 수준**이라는 것이 2차의 결론입니다. "모델이 데이터에서 스스로 좋은 경계를 찾게 맡기는" 접근 자체의 한계로 보입니다 — 이게 3차에서 접근 방식을 통째로 바꾸는 이유입니다.
 
 #### 3차 — 인사이트 기반 피처 엔지니어링: 위험구간(risk_zone) (`src/model_3.ipynb`, 최종 배포)
 
@@ -287,18 +289,19 @@ flowchart LR
 | 단계 | 접근 | 정밀도 | 재현율 | F1 |
 | --- | --- | --- | --- | --- |
 | 1차 | Baseline, 임계값 조정 (RF) | 0.35 | 0.85 | 0.50 |
-| 2차 | 피처 엔지니어링 + `RandomizedSearchCV` 재현율 튜닝 (RF) | 0.34 | 0.91 | 0.50 |
+| 2차 | 피처 엔지니어링 + `RandomizedSearchCV` 튜닝 (RF, Feature 조합 기준) | 0.39 | 0.90 | 0.54 |
 | 3차 | 위험구간(risk_zone) 피처 + Random Forest | **1.000** | 0.838 | **0.912** |
 
-1차·2차는 모델/파라미터를 아무리 바꿔도 F1이 0.50 언저리에 머물렀지만, 3차에서 **도메인 지식을 피처로
-직접 주입하자 F1이 0.912까지 뛰었습니다** — "모델을 더 잘 튜닝하는 것"보다 "데이터에 이미 있는 물리적
-규칙을 모델이 알아채기 쉬운 형태로 바꿔주는 것"이 훨씬 효과적이었다는 뜻입니다.
+1차에서 2차로 넘어가며 RF의 F1은 0.50→0.54로 소폭 개선됐을 뿐이고(XGBoost·LightGBM은 2차에서 오히려
+정체·하락), 3차에서 **도메인 지식을 피처로 직접 주입하자 F1이 0.912까지 뛰었습니다** — "모델을 더 잘
+튜닝하는 것"보다 "데이터에 이미 있는 물리적 규칙을 모델이 알아채기 쉬운 형태로 바꿔주는 것"이 훨씬
+효과적이었다는 뜻입니다.
 
 **핵심 요약**
 1. 원본 변수 절대값보다 "위험 신호 동시 발생 개수"가 훨씬 강한 신호
 2. 근거 기반 피처 엔지니어링 — 데이터셋 공식 문서의 고장 조건을 그대로 피처화
 3. 클래스 불균형 문제는 AUC만으로 판단 금지 → F1/precision/recall 함께 확인 필요
-4. 파라미터 튜닝(2차)은 재현율/정밀도 중 하나를 다른 하나와 맞바꿀 뿐 트레이드오프 자체를 깨지 못했지만, 피처 엔지니어링(3차)은 그 트레이드오프 자체를 완화했다 — 모델링 순서상 "더 정교한 튜닝"보다 "더 좋은 피처"를 먼저 의심해볼 가치가 있다는 교훈
+4. 파생변수·하이퍼파라미터 튜닝(2차)은 이미 강한 모델(XGBoost·LightGBM)을 더 끌어올리지 못했고 약한 모델(RF)만 소폭 개선했지만, 도메인 지식 기반 피처(3차)는 세 모델 모두를 크게 끌어올렸다 — 모델링 순서상 "더 정교한 튜닝"보다 "더 좋은 피처"를 먼저 의심해볼 가치가 있다는 교훈
 
 ## 3. 모델 저장 & UI 연동
 
@@ -403,7 +406,7 @@ flowchart TD
 ## 실행 방법
 
 ```bash
-# 환경 설정 (저장소에 .venv/가 이미 있음; 없다면 python -m venv .venv로 생성)
+# 환경 설정 (.venv/는 .gitignore 대상이라 clone 직후에는 없음 — 먼저 python -m venv .venv로 생성)
 # 주의: pip가 PATH상 Anaconda 것을 먼저 찾아 .venv가 아닌 곳에 설치될 수 있으니
 # (docs/troubleshooting.md 참고) 반드시 .venv의 python -m pip로 설치할 것
 ./.venv/Scripts/python -m pip install -r requirements.txt
